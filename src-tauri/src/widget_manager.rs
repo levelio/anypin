@@ -42,6 +42,7 @@ pub fn create_url_widget_window(
     let webview_url = WebviewUrl::External(url.parse().map_err(|e: url::ParseError| e.to_string())?);
 
     let webview = WebviewWindowBuilder::new(app, label, webview_url)
+        .title("Web Pin")
         .always_on_top(true)
         .decorations(true)
         .skip_taskbar(true)
@@ -51,6 +52,10 @@ pub fn create_url_widget_window(
 
     #[cfg(target_os = "macos")]
     {
+        use tauri::TitleBarStyle;
+        webview
+            .set_title_bar_style(TitleBarStyle::Visible)
+            .map_err(|e| e.to_string())?;
         webview
             .set_visible_on_all_workspaces(true)
             .map_err(|e| e.to_string())?;
