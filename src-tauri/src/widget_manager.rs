@@ -43,9 +43,8 @@ pub fn create_url_widget_window(
 
     let webview = WebviewWindowBuilder::new(app, label, webview_url)
         .always_on_top(true)
-        .decorations(false)
+        .decorations(true)
         .skip_taskbar(true)
-        .transparent(true)
         .inner_size(width, height)
         .build()
         .map_err(|e| e.to_string())?;
