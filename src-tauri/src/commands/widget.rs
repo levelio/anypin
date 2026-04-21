@@ -110,5 +110,11 @@ pub fn toggle_click_through(
     }
     let widgets = state.lock().unwrap().widgets.clone();
     config::save_widgets(&app, &widgets);
+    crate::tray::rebuild_tray_menu(&app).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn show_widget_context_menu(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    widget_manager::popup_widget_menu(&app, &label)
 }

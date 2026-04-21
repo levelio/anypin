@@ -1,4 +1,7 @@
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    Manager, WebviewUrl, WebviewWindowBuilder,
+};
 
 pub fn create_widget_window(
     app: &tauri::AppHandle,
@@ -69,4 +72,33 @@ pub fn set_click_through(app: &tauri::AppHandle, label: &str, enabled: bool) -> 
         .ok_or_else(|| format!("Window '{label}' not found"))?;
     win.set_ignore_cursor_events(enabled)
         .map_err(|e| e.to_string())
+}
+
+pub fn popup_widget_menu(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    let win = app
+        .get_webview_window(label)
+        .ok_or_else(|| format!("Window '{label}' not found"))?;
+
+    let op100 = MenuItem::with_id(app, format!("ctx:{label}:op100"), "100%", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let op70 = MenuItem::with_id(app, format!("ctx:{label}:op70"), "70%", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let op50 = MenuItem::with_id(app, format!("ctx:{label}:op50"), "50%", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let op30 = MenuItem::with_id(app, format!("ctx:{label}:op30"), "30%", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let sep1 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let ct = MenuItem::with_id(app, format!("ctx:{label}:ct"), "点击穿透", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let sep2 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let close = MenuItem::with_id(app, format!("ctx:{label}:close"), "关闭", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+
+    let menu = Menu::with_items(
+        app,
+        &[&op100, &op70, &op50, &op30, &sep1, &ct, &sep2, &close],
+    )
+    .map_err(|e| e.to_string())?;
+
+    win.popup_menu(&menu).map_err(|e| e.to_string())
 }

@@ -14,6 +14,7 @@
         -webkit-user-select: none;
       }
       .widget {
+        position: relative;
         display: flex; flex-direction: column; align-items: center;
         justify-content: center; padding: 12px 20px;
         background: rgba(0, 0, 0, 0.75);
@@ -31,12 +32,23 @@
       }
       .btn:hover { background: rgba(255,255,255,0.2); }
       .btn.active { background: rgba(74, 222, 128, 0.3); border-color: #4ade80; }
+      .close-btn {
+        position: absolute; top: 4px; right: 4px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 11px; line-height: 18px; text-align: center;
+        cursor: pointer; opacity: 0; transition: opacity 0.15s;
+      }
+      .widget:hover .close-btn { opacity: 1; }
+      .close-btn:hover { background: rgba(248, 113, 113, 0.8); color: #fff; }
     </style>
   </head>
   <body>
     <div class="widget" data-tauri-drag-region>
-      <div class="time" id="display">25:00</div>
-      <div class="label" id="mode-label">番茄钟</div>
+      <div class="close-btn" onclick="closeWidget()">&times;</div>
+      <div class="time" id="display" data-tauri-drag-region>25:00</div>
+      <div class="label" id="mode-label" data-tauri-drag-region>番茄钟</div>
       <div class="buttons">
         <div class="btn" id="btn-start" onclick="toggleTimer()">开始</div>
         <div class="btn" onclick="switchMode('pomodoro')">番茄</div>
@@ -50,6 +62,13 @@
       var running = false;
       var interval = null;
       var mode = "pomodoro";
+
+      function invoke(cmd, args) {
+        if (window.__TAURI_INTERNALS__) {
+          return window.__TAURI_INTERNALS__.invoke(cmd, args);
+        }
+        return Promise.reject("Tauri not available");
+      }
 
       function updateDisplay() {
         var m = Math.floor(seconds / 60);
@@ -95,12 +114,19 @@
       }
 
       function notify() {
-        if (window.__TAURI_INTERNALS__) {
-          window.__TAURI_INTERNALS__.invoke("send_notification", { title: "anyPin Timer", body: "时间到！" });
-        }
+        invoke("send_notification", { title: "anyPin Timer", body: "时间到！" });
+      }
+
+      function closeWidget() {
+        invoke("destroy_widget", { label: label });
       }
 
       updateDisplay();
+
+      document.addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+        invoke("show_widget_context_menu", { label: label });
+      });
     </script>
   </body>
 </html>

@@ -14,6 +14,7 @@
         -webkit-user-select: none;
       }
       .widget {
+        position: relative;
         display: flex; flex-direction: column; padding: 12px 16px;
         background: rgba(0, 0, 0, 0.75);
         backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -34,27 +35,58 @@
       .dot.gray { background: #6b7280; }
       .item-label { display: flex; align-items: center; }
       .item-status { color: rgba(255,255,255,0.5); font-size: 11px; }
+      .close-btn {
+        position: absolute; top: 4px; right: 4px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 11px; line-height: 18px; text-align: center;
+        cursor: pointer; opacity: 0; transition: opacity 0.15s;
+      }
+      .widget:hover .close-btn { opacity: 1; }
+      .close-btn:hover { background: rgba(248, 113, 113, 0.8); color: #fff; }
     </style>
   </head>
   <body>
     <div class="widget" data-tauri-drag-region>
-      <div class="header">状态监控</div>
-      <div class="item">
+      <div class="close-btn" onclick="closeWidget()">&times;</div>
+      <div class="header" data-tauri-drag-region>状态监控</div>
+      <div class="item" data-tauri-drag-region>
         <span class="item-label"><span class="dot green"></span>API 服务</span>
         <span class="item-status">200ms</span>
       </div>
-      <div class="item">
+      <div class="item" data-tauri-drag-region>
         <span class="item-label"><span class="dot green"></span>数据库</span>
         <span class="item-status">正常</span>
       </div>
-      <div class="item">
+      <div class="item" data-tauri-drag-region>
         <span class="item-label"><span class="dot red"></span>队列</span>
         <span class="item-status">延迟</span>
       </div>
-      <div class="item">
+      <div class="item" data-tauri-drag-region>
         <span class="item-label"><span class="dot gray"></span>缓存</span>
         <span class="item-status">v0.2 演示</span>
       </div>
     </div>
+
+    <script>
+      var label = new URLSearchParams(window.location.search).get("label") || "";
+
+      function invoke(cmd, args) {
+        if (window.__TAURI_INTERNALS__) {
+          return window.__TAURI_INTERNALS__.invoke(cmd, args);
+        }
+        return Promise.reject("Tauri not available");
+      }
+
+      function closeWidget() {
+        invoke("destroy_widget", { label: label });
+      }
+
+      document.addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+        invoke("show_widget_context_menu", { label: label });
+      });
+    </script>
   </body>
 </html>

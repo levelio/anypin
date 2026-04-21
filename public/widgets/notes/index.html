@@ -12,6 +12,7 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       }
       .widget {
+        position: relative;
         display: flex; flex-direction: column;
         background: rgba(0, 0, 0, 0.75);
         backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -33,10 +34,22 @@
         padding: 4px 12px; font-size: 10px;
         color: rgba(255,255,255,0.3); text-align: right;
       }
+      .close-btn {
+        position: absolute; top: 4px; right: 4px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 11px; line-height: 18px; text-align: center;
+        cursor: pointer; opacity: 0; transition: opacity 0.15s;
+        z-index: 10;
+      }
+      .widget:hover .close-btn { opacity: 1; }
+      .close-btn:hover { background: rgba(248, 113, 113, 0.8); color: #fff; }
     </style>
   </head>
   <body>
     <div class="widget">
+      <div class="close-btn" onclick="closeWidget()">&times;</div>
       <div class="header" data-tauri-drag-region>便签</div>
       <textarea id="note" placeholder="输入内容..." oninput="save()"></textarea>
       <div class="footer" id="status">自动保存</div>
@@ -47,7 +60,13 @@
       var statusEl = document.getElementById("status");
       var saveTimeout = null;
 
-      // Load saved content
+      function invoke(cmd, args) {
+        if (window.__TAURI_INTERNALS__) {
+          return window.__TAURI_INTERNALS__.invoke(cmd, args);
+        }
+        return Promise.reject("Tauri not available");
+      }
+
       if (window.__TAURI_INTERNALS__) {
         window.__TAURI_INTERNALS__.invoke("get_widget_store", { label: label, key: "note" })
           .then(function(val) { if (val) noteEl.value = val; })
@@ -65,6 +84,16 @@
           }
         }, 500);
       }
+
+      function closeWidget() {
+        invoke("destroy_widget", { label: label });
+      }
+
+      document.addEventListener("contextmenu", function(e) {
+        if (e.target.tagName === "TEXTAREA") return;
+        e.preventDefault();
+        invoke("show_widget_context_menu", { label: label });
+      });
     </script>
   </body>
 </html>

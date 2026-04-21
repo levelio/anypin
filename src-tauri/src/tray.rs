@@ -40,8 +40,68 @@ pub fn create_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                     let _ = win.set_focus();
                 }
             }
+            id if id.starts_with("toggle-ct-") => {
+                let lbl = &id[10..];
+                let current = {
+                    let state = app.state::<std::sync::Mutex<crate::state::AppState>>();
+                    let val = state
+                        .lock()
+                        .unwrap()
+                        .get_widget(lbl)
+                        .map(|w| w.click_through)
+                        .unwrap_or(false);
+                    val
+                };
+                let new_val = !current;
+                if crate::widget_manager::set_click_through(app, lbl, new_val).is_ok() {
+                    {
+                        let state = app.state::<std::sync::Mutex<crate::state::AppState>>();
+                        let mut locked = state.lock().unwrap();
+                        if let Some(w) = locked.get_widget_mut(lbl) {
+                            w.click_through = new_val;
+                        }
+                        let widgets = locked.widgets.clone();
+                        crate::commands::config::save_widgets(app, &widgets);
+                    }
+                    if let Err(e) = rebuild_tray_menu(app) {
+                        eprintln!("Failed to refresh tray menu: {e}");
+                    }
+                }
+            }
             "quit" => {
                 app.exit(0);
+            }
+            "cancel-all-ct" => {
+                let ct_labels: Vec<String> = {
+                    let state = app.state::<std::sync::Mutex<crate::state::AppState>>();
+                    let labels = state
+                        .lock()
+                        .unwrap()
+                        .widgets
+                        .iter()
+                        .filter(|w| w.click_through)
+                        .map(|w| w.label.clone())
+                        .collect::<Vec<_>>();
+                    labels
+                };
+                for lbl in &ct_labels {
+                    {
+                        let state = app.state::<std::sync::Mutex<crate::state::AppState>>();
+                        let mut locked = state.lock().unwrap();
+                        if let Some(w) = locked.get_widget_mut(lbl) {
+                            w.click_through = false;
+                        }
+                    }
+                    let _ = crate::widget_manager::set_click_through(app, lbl, false);
+                }
+                {
+                    let state = app.state::<std::sync::Mutex<crate::state::AppState>>();
+                    let widgets = state.lock().unwrap().widgets.clone();
+                    crate::commands::config::save_widgets(app, &widgets);
+                }
+                if let Err(e) = rebuild_tray_menu(app) {
+                    eprintln!("Failed to refresh tray menu: {e}");
+                }
             }
             _ => {}
         })
@@ -81,36 +141,69 @@ fn build_menu<M: Manager<tauri::Wry>>(
         locked.widgets.clone()
     };
 
-    let active_items: Vec<MenuItem<tauri::Wry>> = if widgets.is_empty() {
-        vec![MenuItem::with_id(
+    let active_refs: Vec<Box<dyn tauri::menu::IsMenuItem<tauri::Wry>>> = if widgets.is_empty() {
+        vec![Box::new(MenuItem::with_id(
             app,
             "no-widgets",
             "暂无置顶窗口",
             false,
             None::<&str>,
-        )?]
+        )?)]
     } else {
         widgets
             .iter()
             .map(|w| {
-                let focus_id = format!("focus-{}", w.label);
-                MenuItem::with_id(app, &focus_id, &w.title, true, None::<&str>).unwrap()
+                let focus_item = MenuItem::with_id(
+                    app,
+                    format!("focus-{}", w.label),
+                    "聚焦窗口",
+                    true,
+                    None::<&str>,
+                )
+                .unwrap();
+                let ct_label = if w.click_through { "取消穿透" } else { "开启穿透" };
+                let ct_item = MenuItem::with_id(
+                    app,
+                    format!("toggle-ct-{}", w.label),
+                    ct_label,
+                    true,
+                    None::<&str>,
+                )
+                .unwrap();
+                let items: Vec<&dyn tauri::menu::IsMenuItem<_>> =
+                    vec![&focus_item, &ct_item];
+                let title = if w.click_through {
+                    format!("{} [穿透]", w.title)
+                } else {
+                    w.title.clone()
+                };
+                Box::new(Submenu::with_items(app, title, true, &items).unwrap())
+                    as Box<dyn tauri::menu::IsMenuItem<_>>
             })
             .collect()
     };
 
-    let active_refs: Vec<&dyn tauri::menu::IsMenuItem<_>> = active_items
-        .iter()
-        .map(|i| i as &dyn tauri::menu::IsMenuItem<_>)
-        .collect();
+    let active_refs: Vec<&dyn tauri::menu::IsMenuItem<_>> =
+        active_refs.iter().map(|i| i.as_ref()).collect();
     let active_i = Submenu::with_items(app, "活跃 Pins", true, &active_refs)?;
 
     let sep2 = PredefinedMenuItem::separator(app)?;
+
+    let cancel_ct = widgets.iter().any(|w| w.click_through);
+    let cancel_ct_i = MenuItem::with_id(
+        app,
+        "cancel-all-ct",
+        "取消全部穿透",
+        cancel_ct,
+        None::<&str>,
+    )?;
+
+    let sep3 = PredefinedMenuItem::separator(app)?;
     let quit_i = MenuItem::with_id(app, "quit", "退出 anyPin", true, None::<&str>)?;
 
     Ok(Menu::with_items(
         app,
-        &[&create_menu, &sep1, &active_i, &sep2, &quit_i],
+        &[&create_menu, &sep1, &active_i, &sep2, &cancel_ct_i, &sep3, &quit_i],
     )?)
 }
 

@@ -14,6 +14,7 @@
         -webkit-user-select: none;
       }
       .widget {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -37,57 +38,35 @@
         color: rgba(255, 255, 255, 0.6);
         margin-top: 4px;
       }
-      .context-menu {
-        position: fixed;
-        background: rgba(30, 30, 30, 0.95);
-        backdrop-filter: blur(20px);
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 4px 0;
-        min-width: 160px;
-        z-index: 9999;
-        display: none;
-      }
-      .context-menu.visible { display: block; }
-      .menu-item {
-        padding: 8px 16px;
+      .close-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 11px;
+        line-height: 18px;
+        text-align: center;
         cursor: pointer;
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        color: #eee;
+        opacity: 0;
+        transition: opacity 0.15s;
       }
-      .menu-item:hover { background: rgba(255, 255, 255, 0.1); }
-      .menu-item .check { margin-left: 12px; color: #4ade80; }
-      .menu-sep { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 4px 0; }
-      .menu-item.danger { color: #f87171; }
+      .widget:hover .close-btn { opacity: 1; }
+      .close-btn:hover { background: rgba(248, 113, 113, 0.8); color: #fff; }
     </style>
   </head>
   <body>
     <div class="widget" data-tauri-drag-region>
-      <div class="time" id="time">--:--:--</div>
-      <div class="date" id="date">----</div>
-    </div>
-
-    <div class="context-menu" id="ctx-menu">
-      <div class="menu-item" data-action="opacity-100">透明度 100%</div>
-      <div class="menu-item" data-action="opacity-70">透明度 70%</div>
-      <div class="menu-item" data-action="opacity-50">透明度 50%</div>
-      <div class="menu-item" data-action="opacity-30">透明度 30%</div>
-      <div class="menu-sep"></div>
-      <div class="menu-item" data-action="click-through">点击穿透 <span class="check" id="ct-check"></span></div>
-      <div class="menu-sep"></div>
-      <div class="menu-item danger" data-action="close">关闭</div>
+      <div class="close-btn" onclick="closeWidget()">&times;</div>
+      <div class="time" id="time" data-tauri-drag-region>--:--:--</div>
+      <div class="date" id="date" data-tauri-drag-region>----</div>
     </div>
 
     <script>
-      const label = new URLSearchParams(window.location.search).get("label") || "";
-      const timeEl = document.getElementById("time");
-      const dateEl = document.getElementById("date");
-      const ctxMenu = document.getElementById("ctx-menu");
-      const ctCheck = document.getElementById("ct-check");
-      let clickThrough = false;
+      var label = new URLSearchParams(window.location.search).get("label") || "";
 
       function invoke(cmd, args) {
         if (window.__TAURI_INTERNALS__) {
@@ -97,17 +76,21 @@
       }
 
       function updateClock() {
-        const now = new Date();
-        const h = String(now.getHours()).padStart(2, "0");
-        const m = String(now.getMinutes()).padStart(2, "0");
-        const s = String(now.getSeconds()).padStart(2, "0");
-        timeEl.textContent = h + ":" + m + ":" + s;
+        var now = new Date();
+        var h = String(now.getHours()).padStart(2, "0");
+        var m = String(now.getMinutes()).padStart(2, "0");
+        var s = String(now.getSeconds()).padStart(2, "0");
+        document.getElementById("time").textContent = h + ":" + m + ":" + s;
 
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, "0");
-        const day = String(now.getDate()).padStart(2, "0");
-        const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
-        dateEl.textContent = year + "." + month + "." + day + " 星期" + weekDays[now.getDay()];
+        var year = now.getFullYear();
+        var month = String(now.getMonth() + 1).padStart(2, "0");
+        var day = String(now.getDate()).padStart(2, "0");
+        var weekDays = ["日", "一", "二", "三", "四", "五", "六"];
+        document.getElementById("date").textContent = year + "." + month + "." + day + " 星期" + weekDays[now.getDay()];
+      }
+
+      function closeWidget() {
+        invoke("destroy_widget", { label: label });
       }
 
       updateClock();
@@ -115,31 +98,7 @@
 
       document.addEventListener("contextmenu", function(e) {
         e.preventDefault();
-        ctxMenu.style.left = e.clientX + "px";
-        ctxMenu.style.top = e.clientY + "px";
-        ctxMenu.classList.add("visible");
-      });
-
-      document.addEventListener("click", function() {
-        ctxMenu.classList.remove("visible");
-      });
-
-      ctxMenu.addEventListener("click", function(e) {
-        const item = e.target.closest(".menu-item");
-        if (!item) return;
-        const action = item.dataset.action;
-
-        if (action === "close") {
-          invoke("destroy_widget", { label: label });
-        } else if (action.startsWith("opacity-")) {
-          const opacity = parseInt(action.split("-")[1]) / 100;
-          invoke("set_widget_opacity", { label: label, opacity: opacity });
-        } else if (action === "click-through") {
-          clickThrough = !clickThrough;
-          ctCheck.textContent = clickThrough ? "\u2713" : "";
-          invoke("toggle_click_through", { label: label, enabled: clickThrough });
-        }
-        ctxMenu.classList.remove("visible");
+        invoke("show_widget_context_menu", { label: label });
       });
     </script>
   </body>

@@ -53,6 +53,71 @@ pub fn run() {
 
             Ok(())
         })
+        .on_menu_event(|app, event| {
+            let id = event.id().as_ref();
+            if !id.starts_with("ctx:") {
+                return;
+            }
+            let rest = &id[4..];
+            let colon_pos = match rest.rfind(':') {
+                Some(p) => p,
+                None => return,
+            };
+            let label = &rest[..colon_pos];
+            let action = &rest[colon_pos + 1..];
+
+            match action {
+                "op100" => {
+                    let _ = widget_manager::set_widget_opacity(app, label, 1.0);
+                }
+                "op70" => {
+                    let _ = widget_manager::set_widget_opacity(app, label, 0.7);
+                }
+                "op50" => {
+                    let _ = widget_manager::set_widget_opacity(app, label, 0.5);
+                }
+                "op30" => {
+                    let _ = widget_manager::set_widget_opacity(app, label, 0.3);
+                }
+                "ct" => {
+                    let current = {
+                        let state = app.state::<std::sync::Mutex<state::AppState>>();
+                        let val = state
+                            .lock()
+                            .unwrap()
+                            .get_widget(label)
+                            .map(|w| w.click_through)
+                            .unwrap_or(false);
+                        val
+                    };
+                    let new_val = !current;
+                    if widget_manager::set_click_through(app, label, new_val).is_ok() {
+                        {
+                            let state = app.state::<std::sync::Mutex<state::AppState>>();
+                            let mut locked = state.lock().unwrap();
+                            if let Some(w) = locked.get_widget_mut(label) {
+                                w.click_through = new_val;
+                            }
+                            let widgets = locked.widgets.clone();
+                            commands::config::save_widgets(app, &widgets);
+                        }
+                        let _ = tray::rebuild_tray_menu(app);
+                    }
+                }
+                "close" => {
+                    if widget_manager::destroy_widget_window(app, label).is_ok() {
+                        {
+                            let state = app.state::<std::sync::Mutex<state::AppState>>();
+                            state.lock().unwrap().remove_widget(label);
+                            let widgets = state.lock().unwrap().widgets.clone();
+                            commands::config::save_widgets(app, &widgets);
+                        }
+                        let _ = tray::rebuild_tray_menu(app);
+                    }
+                }
+                _ => {}
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::widget::create_widget,
             commands::widget::destroy_widget,
@@ -61,6 +126,7 @@ pub fn run() {
             commands::widget::hide_widget,
             commands::widget::set_widget_opacity,
             commands::widget::toggle_click_through,
+            commands::widget::show_widget_context_menu,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
