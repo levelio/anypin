@@ -9,19 +9,21 @@ pub fn create_widget_window(
 ) -> Result<(), String> {
     let url = WebviewUrl::App(html_path.into());
 
-    let mut builder = WebviewWindowBuilder::new(app, label, url)
+    let webview = WebviewWindowBuilder::new(app, label, url)
         .always_on_top(true)
         .decorations(false)
         .skip_taskbar(true)
         .transparent(true)
-        .inner_size(width, height);
+        .inner_size(width, height)
+        .build()
+        .map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "macos")]
     {
-        builder = builder.visible_on_all_workspaces(true);
+        webview
+            .set_visible_on_all_workspaces(true)
+            .map_err(|e| e.to_string())?;
     }
-
-    builder.build().map_err(|e| e.to_string())?;
 
     Ok(())
 }
