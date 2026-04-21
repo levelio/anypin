@@ -31,6 +31,7 @@
 			"!**/node_modules",
 			"!**/src/styles",
 			"!**/src/components/ui",
+			"!**/public/widgets",
 			"!**/.claude"
 		]
 	}

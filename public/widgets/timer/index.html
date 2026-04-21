@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timer Widget</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: transparent;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .widget {
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; padding: 12px 20px;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-radius: 12px; min-width: 180px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .time { font-size: 36px; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .label { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+      .buttons { display: flex; gap: 8px; margin-top: 8px; }
+      .btn {
+        padding: 4px 12px; border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 6px; background: rgba(255,255,255,0.1);
+        color: #fff; font-size: 12px; cursor: pointer;
+      }
+      .btn:hover { background: rgba(255,255,255,0.2); }
+      .btn.active { background: rgba(74, 222, 128, 0.3); border-color: #4ade80; }
+    </style>
+  </head>
+  <body>
+    <div class="widget" data-tauri-drag-region>
+      <div class="time" id="display">25:00</div>
+      <div class="label" id="mode-label">番茄钟</div>
+      <div class="buttons">
+        <div class="btn" id="btn-start" onclick="toggleTimer()">开始</div>
+        <div class="btn" onclick="switchMode('pomodoro')">番茄</div>
+        <div class="btn" onclick="switchMode('countdown')">倒计时</div>
+        <div class="btn" onclick="resetTimer()">重置</div>
+      </div>
+    </div>
+    <script>
+      var label = new URLSearchParams(window.location.search).get("label") || "";
+      var seconds = 25 * 60;
+      var running = false;
+      var interval = null;
+      var mode = "pomodoro";
+
+      function updateDisplay() {
+        var m = Math.floor(seconds / 60);
+        var s = seconds % 60;
+        document.getElementById("display").textContent =
+          String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+
+      function toggleTimer() {
+        var btn = document.getElementById("btn-start");
+        if (running) {
+          clearInterval(interval);
+          running = false;
+          btn.textContent = "继续";
+          btn.classList.remove("active");
+        } else {
+          interval = setInterval(function() {
+            if (seconds > 0) { seconds--; updateDisplay(); }
+            else { clearInterval(interval); running = false; btn.textContent = "开始"; btn.classList.remove("active"); notify(); }
+          }, 1000);
+          running = true;
+          btn.textContent = "暂停";
+          btn.classList.add("active");
+        }
+      }
+
+      function switchMode(m) {
+        mode = m;
+        clearInterval(interval); running = false;
+        var btn = document.getElementById("btn-start");
+        btn.textContent = "开始"; btn.classList.remove("active");
+        document.getElementById("mode-label").textContent = m === "pomodoro" ? "番茄钟" : "倒计时";
+        seconds = m === "pomodoro" ? 25 * 60 : 5 * 60;
+        updateDisplay();
+      }
+
+      function resetTimer() {
+        clearInterval(interval); running = false;
+        var btn = document.getElementById("btn-start");
+        btn.textContent = "开始"; btn.classList.remove("active");
+        seconds = mode === "pomodoro" ? 25 * 60 : 5 * 60;
+        updateDisplay();
+      }
+
+      function notify() {
+        if (window.__TAURI_INTERNALS__) {
+          window.__TAURI_INTERNALS__.invoke("send_notification", { title: "anyPin Timer", body: "时间到！" });
+        }
+      }
+
+      updateDisplay();
+    </script>
+  </body>
+</html>

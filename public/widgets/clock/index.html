@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clock Widget</title>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
+      * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
         background: transparent;
         color: #fff;
@@ -18,7 +13,6 @@
         user-select: none;
         -webkit-user-select: none;
       }
-
       .widget {
         display: flex;
         flex-direction: column;
@@ -32,58 +26,121 @@
         min-width: 180px;
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
-
-      .drag-region {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 30px;
-        cursor: grab;
-        data-tauri-drag-region: true;
-      }
-
       .time {
         font-size: 36px;
         font-weight: 600;
         letter-spacing: 2px;
         font-variant-numeric: tabular-nums;
       }
-
       .date {
         font-size: 12px;
         color: rgba(255, 255, 255, 0.6);
         margin-top: 4px;
       }
+      .context-menu {
+        position: fixed;
+        background: rgba(30, 30, 30, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 4px 0;
+        min-width: 160px;
+        z-index: 9999;
+        display: none;
+      }
+      .context-menu.visible { display: block; }
+      .menu-item {
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #eee;
+      }
+      .menu-item:hover { background: rgba(255, 255, 255, 0.1); }
+      .menu-item .check { margin-left: 12px; color: #4ade80; }
+      .menu-sep { height: 1px; background: rgba(255, 255, 255, 0.1); margin: 4px 0; }
+      .menu-item.danger { color: #f87171; }
     </style>
   </head>
   <body>
     <div class="widget" data-tauri-drag-region>
-      <div class="drag-region" data-tauri-drag-region></div>
       <div class="time" id="time">--:--:--</div>
       <div class="date" id="date">----</div>
     </div>
+
+    <div class="context-menu" id="ctx-menu">
+      <div class="menu-item" data-action="opacity-100">透明度 100%</div>
+      <div class="menu-item" data-action="opacity-70">透明度 70%</div>
+      <div class="menu-item" data-action="opacity-50">透明度 50%</div>
+      <div class="menu-item" data-action="opacity-30">透明度 30%</div>
+      <div class="menu-sep"></div>
+      <div class="menu-item" data-action="click-through">点击穿透 <span class="check" id="ct-check"></span></div>
+      <div class="menu-sep"></div>
+      <div class="menu-item danger" data-action="close">关闭</div>
+    </div>
+
     <script>
+      const label = new URLSearchParams(window.location.search).get("label") || "";
       const timeEl = document.getElementById("time");
       const dateEl = document.getElementById("date");
+      const ctxMenu = document.getElementById("ctx-menu");
+      const ctCheck = document.getElementById("ct-check");
+      let clickThrough = false;
+
+      function invoke(cmd, args) {
+        if (window.__TAURI_INTERNALS__) {
+          return window.__TAURI_INTERNALS__.invoke(cmd, args);
+        }
+        return Promise.reject("Tauri not available");
+      }
 
       function updateClock() {
         const now = new Date();
         const h = String(now.getHours()).padStart(2, "0");
         const m = String(now.getMinutes()).padStart(2, "0");
         const s = String(now.getSeconds()).padStart(2, "0");
-        timeEl.textContent = `${h}:${m}:${s}`;
+        timeEl.textContent = h + ":" + m + ":" + s;
 
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, "0");
         const day = String(now.getDate()).padStart(2, "0");
         const weekDays = ["日", "一", "二", "三", "四", "五", "六"];
-        const weekDay = weekDays[now.getDay()];
-        dateEl.textContent = `${year}.${month}.${day} 星期${weekDay}`;
+        dateEl.textContent = year + "." + month + "." + day + " 星期" + weekDays[now.getDay()];
       }
 
       updateClock();
       setInterval(updateClock, 1000);
+
+      document.addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+        ctxMenu.style.left = e.clientX + "px";
+        ctxMenu.style.top = e.clientY + "px";
+        ctxMenu.classList.add("visible");
+      });
+
+      document.addEventListener("click", function() {
+        ctxMenu.classList.remove("visible");
+      });
+
+      ctxMenu.addEventListener("click", function(e) {
+        const item = e.target.closest(".menu-item");
+        if (!item) return;
+        const action = item.dataset.action;
+
+        if (action === "close") {
+          invoke("destroy_widget", { label: label });
+        } else if (action.startsWith("opacity-")) {
+          const opacity = parseInt(action.split("-")[1]) / 100;
+          invoke("set_widget_opacity", { label: label, opacity: opacity });
+        } else if (action === "click-through") {
+          clickThrough = !clickThrough;
+          ctCheck.textContent = clickThrough ? "\u2713" : "";
+          invoke("toggle_click_through", { label: label, enabled: clickThrough });
+        }
+        ctxMenu.classList.remove("visible");
+      });
     </script>
   </body>
 </html>

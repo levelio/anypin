@@ -87,3 +87,28 @@ pub fn hide_widget(app: tauri::AppHandle, label: String) -> Result<(), String> {
         .ok_or_else(|| format!("Window '{label}' not found"))?;
     win.hide().map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn set_widget_opacity(
+    app: tauri::AppHandle,
+    label: String,
+    opacity: f32,
+) -> Result<(), String> {
+    widget_manager::set_widget_opacity(&app, &label, opacity)
+}
+
+#[tauri::command]
+pub fn toggle_click_through(
+    app: tauri::AppHandle,
+    state: State<'_, std::sync::Mutex<AppState>>,
+    label: String,
+    enabled: bool,
+) -> Result<(), String> {
+    widget_manager::set_click_through(&app, &label, enabled)?;
+    if let Some(w) = state.lock().unwrap().get_widget_mut(&label) {
+        w.click_through = enabled;
+    }
+    let widgets = state.lock().unwrap().widgets.clone();
+    config::save_widgets(&app, &widgets);
+    Ok(())
+}

@@ -7,7 +7,8 @@ pub fn create_widget_window(
     width: f64,
     height: f64,
 ) -> Result<(), String> {
-    let url = WebviewUrl::App(html_path.into());
+    let url_with_label = format!("{html_path}?label={label}");
+    let url = WebviewUrl::App(url_with_label.into());
 
     let webview = WebviewWindowBuilder::new(app, label, url)
         .always_on_top(true)
@@ -34,4 +35,38 @@ pub fn destroy_widget_window(app: &tauri::AppHandle, label: &str) -> Result<(), 
     } else {
         Err(format!("Window '{label}' not found"))
     }
+}
+
+pub fn set_widget_opacity(app: &tauri::AppHandle, label: &str, opacity: f32) -> Result<(), String> {
+    let win = app
+        .get_webview_window(label)
+        .ok_or_else(|| format!("Window '{label}' not found"))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        #[allow(deprecated)]
+        {
+            use cocoa::appkit::NSWindow;
+            use cocoa::base::id;
+            let ns_window: id = win.ns_window().map_err(|e| e.to_string())? as id;
+            unsafe {
+                ns_window.setAlphaValue_(opacity as f64);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (win, opacity);
+    }
+
+    Ok(())
+}
+
+pub fn set_click_through(app: &tauri::AppHandle, label: &str, enabled: bool) -> Result<(), String> {
+    let win = app
+        .get_webview_window(label)
+        .ok_or_else(|| format!("Window '{label}' not found"))?;
+    win.set_ignore_cursor_events(enabled)
+        .map_err(|e| e.to_string())
 }

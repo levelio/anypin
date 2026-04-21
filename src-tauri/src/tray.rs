@@ -1,3 +1,4 @@
+use crate::template;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::TrayIconBuilder,
@@ -15,24 +16,26 @@ pub fn create_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .show_menu_on_left_click(true)
         .tooltip("anyPin - 置顶小部件")
         .on_menu_event(move |app, event| match event.id().as_ref() {
-            "create-clock" => {
+            id if id.starts_with("create-") => {
+                let template_id = &id[7..];
                 let label = format!(
-                    "clock-{}",
+                    "{}-{}",
+                    template_id,
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_millis()
                 );
-                if let Err(e) = invoke_create_clock(app, &label) {
-                    eprintln!("Failed to create clock widget: {e}");
+                if let Err(e) = invoke_create_widget(app, &label, template_id) {
+                    eprintln!("Failed to create widget: {e}");
                 }
                 if let Err(e) = rebuild_tray_menu(app) {
                     eprintln!("Failed to refresh tray menu: {e}");
                 }
             }
             id if id.starts_with("focus-") => {
-                let label = &id[6..];
-                if let Some(win) = app.get_webview_window(label) {
+                let lbl = &id[6..];
+                if let Some(win) = app.get_webview_window(lbl) {
                     let _ = win.show();
                     let _ = win.set_focus();
                 }
@@ -50,7 +53,26 @@ pub fn create_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 fn build_menu<M: Manager<tauri::Wry>>(
     app: &M,
 ) -> Result<Menu<tauri::Wry>, Box<dyn std::error::Error>> {
-    let clock_i = MenuItem::with_id(app, "create-clock", "新建置顶时钟", true, None::<&str>)?;
+    let templates = template::get_builtin_templates();
+    let create_items: Vec<MenuItem<tauri::Wry>> = templates
+        .iter()
+        .map(|t| {
+            MenuItem::with_id(
+                app,
+                format!("create-{}", t.id),
+                format!("新建{}", t.name),
+                true,
+                None::<&str>,
+            )
+            .unwrap()
+        })
+        .collect();
+    let create_refs: Vec<&dyn tauri::menu::IsMenuItem<_>> = create_items
+        .iter()
+        .map(|i| i as &dyn tauri::menu::IsMenuItem<_>)
+        .collect();
+    let create_menu = Submenu::with_items(app, "新建 Pin", true, &create_refs)?;
+
     let sep1 = PredefinedMenuItem::separator(app)?;
 
     let widgets = {
@@ -88,7 +110,7 @@ fn build_menu<M: Manager<tauri::Wry>>(
 
     Ok(Menu::with_items(
         app,
-        &[&clock_i, &sep1, &active_i, &sep2, &quit_i],
+        &[&create_menu, &sep1, &active_i, &sep2, &quit_i],
     )?)
 }
 
@@ -100,21 +122,33 @@ pub fn rebuild_tray_menu(app: &tauri::AppHandle) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-fn invoke_create_clock(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+fn invoke_create_widget(
+    app: &tauri::AppHandle,
+    label: &str,
+    template_id: &str,
+) -> Result<(), String> {
+    let tmpl = template::get_builtin_templates()
+        .into_iter()
+        .find(|t| t.id == template_id)
+        .ok_or_else(|| format!("Template '{template_id}' not found"))?;
+
+    let html_path = template::get_template_html_path(template_id)
+        .ok_or_else(|| format!("No HTML for '{template_id}'"))?;
+
     crate::widget_manager::create_widget_window(
         app,
         label,
-        "widgets/clock/index.html",
-        200.0,
-        80.0,
+        &html_path,
+        tmpl.default_size.0,
+        tmpl.default_size.1,
     )?;
 
     let widget = crate::state::WidgetInfo {
         label: label.to_string(),
-        template_id: "clock".to_string(),
-        title: "置顶时钟".to_string(),
+        template_id: template_id.to_string(),
+        title: tmpl.name.clone(),
         position: (0.0, 0.0),
-        size: (200.0, 80.0),
+        size: tmpl.default_size,
         opacity: 1.0,
         always_on_top: true,
         click_through: false,

@@ -59,6 +59,8 @@ pub fn run() {
             commands::widget::list_widgets,
             commands::widget::show_widget,
             commands::widget::hide_widget,
+            commands::widget::set_widget_opacity,
+            commands::widget::toggle_click_through,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
