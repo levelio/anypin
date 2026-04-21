@@ -112,6 +112,7 @@ pub fn destroy_widget(
     state.lock().unwrap().remove_widget(&label);
     let widgets = state.lock().unwrap().widgets.clone();
     config::save_widgets(&app, &widgets);
+    crate::tray::rebuild_tray_menu(&app).map_err(|e| e.to_string())?;
     Ok(())
 }
 
