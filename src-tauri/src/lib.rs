@@ -44,6 +44,8 @@ pub fn run() {
                         locked.add_widget(w.clone());
                     }
                 }
+                drop(locked);
+                tray::rebuild_tray_menu(app.handle())?;
             }
 
             Ok(())

@@ -38,7 +38,6 @@ pub fn load_widgets(app: &tauri::AppHandle) -> Vec<WidgetInfo> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::state::WidgetInfo;
 
     fn sample_widget(label: &str) -> WidgetInfo {
