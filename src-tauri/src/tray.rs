@@ -17,6 +17,12 @@ pub fn create_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .tooltip("anyPin - 置顶小部件")
         .on_menu_event(move |app, event| match event.id().as_ref() {
             id if id.starts_with("create-") => {
+                if id == "create-url" {
+                    if let Err(e) = crate::commands::widget::open_url_input(app.clone()) {
+                        eprintln!("Failed to open URL input: {e}");
+                    }
+                    return;
+                }
                 let template_id = &id[7..];
                 let label = format!(
                     "{}-{}",
@@ -127,10 +133,12 @@ fn build_menu<M: Manager<tauri::Wry>>(
             .unwrap()
         })
         .collect();
-    let create_refs: Vec<&dyn tauri::menu::IsMenuItem<_>> = create_items
+    let url_item = MenuItem::with_id(app, "create-url", "从 URL 创建 Pin...", true, None::<&str>)?;
+    let mut create_refs: Vec<&dyn tauri::menu::IsMenuItem<_>> = create_items
         .iter()
         .map(|i| i as &dyn tauri::menu::IsMenuItem<_>)
         .collect();
+    create_refs.push(&url_item);
     let create_menu = Submenu::with_items(app, "新建 Pin", true, &create_refs)?;
 
     let sep1 = PredefinedMenuItem::separator(app)?;
@@ -246,6 +254,7 @@ fn invoke_create_widget(
         always_on_top: true,
         click_through: false,
         visible: true,
+        url: None,
     };
 
     let state = app.state::<std::sync::Mutex<crate::state::AppState>>();

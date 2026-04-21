@@ -11,6 +11,8 @@ pub struct WidgetInfo {
     pub always_on_top: bool,
     pub click_through: bool,
     pub visible: bool,
+    #[serde(default)]
+    pub url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,6 +69,7 @@ mod tests {
             always_on_top: true,
             click_through: false,
             visible: true,
+            url: None,
         }
     }
 

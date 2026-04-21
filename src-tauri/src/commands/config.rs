@@ -51,6 +51,7 @@ mod tests {
             always_on_top: true,
             click_through: false,
             visible: true,
+            url: None,
         }
     }
 

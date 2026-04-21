@@ -17,6 +17,9 @@
     "core:window:allow-set-effects",
     "core:window:allow-destroy",
     "opener:default",
-    "store:default"
+    "store:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "core:window:allow-set-ignore-cursor-events"
   ]
 }
