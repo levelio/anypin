@@ -20,6 +20,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(std::sync::Mutex::new(state::AppState::default()))
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             tray::create_tray(app)?;
 
             let handle = app.handle().clone();
