@@ -41,21 +41,22 @@ pub fn create_url_widget_window(
 ) -> Result<(), String> {
     let webview_url = WebviewUrl::External(url.parse().map_err(|e: url::ParseError| e.to_string())?);
 
-    let webview = WebviewWindowBuilder::new(app, label, webview_url)
+    let mut builder = WebviewWindowBuilder::new(app, label, webview_url)
         .title("Web Pin")
         .always_on_top(true)
         .decorations(true)
         .skip_taskbar(true)
-        .inner_size(width, height)
-        .build()
-        .map_err(|e| e.to_string())?;
+        .inner_size(width, height);
 
     #[cfg(target_os = "macos")]
     {
-        use tauri::TitleBarStyle;
-        webview
-            .set_title_bar_style(TitleBarStyle::Visible)
-            .map_err(|e| e.to_string())?;
+        builder = builder.title_bar_style(tauri::TitleBarStyle::Overlay);
+    }
+
+    let webview = builder.build().map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    {
         webview
             .set_visible_on_all_workspaces(true)
             .map_err(|e| e.to_string())?;
