@@ -46,6 +46,20 @@ pub fn create_tray(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                     let _ = win.set_focus();
                 }
             }
+            id if id.starts_with("close-") => {
+                let lbl = &id[6..];
+                if crate::widget_manager::destroy_widget_window(app, lbl).is_ok() {
+                    {
+                        let state = app.state::<std::sync::Mutex<crate::state::AppState>>();
+                        state.lock().unwrap().remove_widget(lbl);
+                        let widgets = state.lock().unwrap().widgets.clone();
+                        crate::commands::config::save_widgets(app, &widgets);
+                    }
+                    if let Err(e) = rebuild_tray_menu(app) {
+                        eprintln!("Failed to refresh tray menu: {e}");
+                    }
+                }
+            }
             id if id.starts_with("toggle-ct-") => {
                 let lbl = &id[10..];
                 let current = {
@@ -178,8 +192,16 @@ fn build_menu<M: Manager<tauri::Wry>>(
                     None::<&str>,
                 )
                 .unwrap();
+                let close_item = MenuItem::with_id(
+                    app,
+                    format!("close-{}", w.label),
+                    "关闭",
+                    true,
+                    None::<&str>,
+                )
+                .unwrap();
                 let items: Vec<&dyn tauri::menu::IsMenuItem<_>> =
-                    vec![&focus_item, &ct_item];
+                    vec![&focus_item, &ct_item, &close_item];
                 let title = if w.click_through {
                     format!("{} [穿透]", w.title)
                 } else {
